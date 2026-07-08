@@ -77,6 +77,12 @@ header {
     color: var(--accent-color);
 }
 
+.logo .emoji {
+    -webkit-text-fill-color: initial;
+    background: none;
+    margin-right: 0.5rem;
+}
+
 .subtitle {
     color: var(--text-secondary);
     font-size: 1.1rem;
