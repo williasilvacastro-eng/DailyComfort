@@ -731,7 +731,7 @@ class ShopeeApp(ctk.CTk):
             display_name = name[:40] + "..." if len(name) > 40 else name
             
             info_text = f"{code} [{category}] {display_name} - R$ {price:.2f}".replace(".", ",")
-            info_lbl = ctk.CTkLabel(row, text=info_text, font=ctk.CTkFont(size=12, weight="semibold"))
+            info_lbl = ctk.CTkLabel(row, text=info_text, font=ctk.CTkFont(size=12, weight="bold"))
             info_lbl.pack(side="left", padx=10, pady=5)
 
             # Botões de Ação
