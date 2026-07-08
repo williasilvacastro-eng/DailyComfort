@@ -1,0 +1,23 @@
+# Ignorar chaves de segurança e credenciais
+.env
+.env.example
+
+# Ignorar ambiente virtual Python
+.venv/
+__pycache__/
+*.pyc
+
+# Ignorar perfil local de cookies/navegador
+.chrome_profile/
+.edge_profile/
+
+# Ignorar pastas de postagens baixadas locais (não são necessárias no site)
+Shopee_Posts/
+Shopee_Posts_Teste/
+
+# Ignorar capturas de tela temporárias de debug
+shopee_debug_screenshot.png
+
+# Ignorar arquivos de sistema do Windows
+Thumbs.db
+Desktop.ini

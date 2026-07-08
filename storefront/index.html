@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Encontre os melhores achadinhos e produtos recomendados da Shopee com ofertas imperdíveis e links de afiliado oficiais.">
+    <title>Achadinhos Shopee - Minha Vitrine Oficial</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Folha de estilo premium -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Fundo animado / Partículas CSS -->
+    <div class="bg-gradient-glow"></div>
+
+    <header>
+        <div class="header-container">
+            <h1 class="logo">✨ Achadinhos <span>Shopee</span></h1>
+            <p class="subtitle">As melhores promoções e achados selecionados para você!</p>
+            
+            <!-- Barra de Pesquisa & Filtros -->
+            <div class="search-filter-box">
+                <input type="text" id="search-input" placeholder="Pesquise por produtos...">
+                <button id="search-btn" class="btn-primary">Buscar</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Vitrine de Produtos -->
+        <section class="products-section">
+            <div class="section-header">
+                <h2>🔥 Ofertas Recentes</h2>
+                <span id="product-count" class="badge">0 produtos</span>
+            </div>
+            
+            <div id="products-grid" class="products-grid">
+                <!-- Cards de produtos injetados via JS -->
+                <div class="loading-state">
+                    <p>Carregando as melhores ofertas...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de Detalhes do Produto -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content glassmorphism">
+            <span id="close-modal-btn" class="close-btn">&times;</span>
+            <div class="modal-grid">
+                <div class="modal-gallery">
+                    <img id="modal-product-img" src="" alt="Imagem do Produto">
+                </div>
+                <div class="modal-info">
+                    <span id="modal-product-id" class="product-id-tag">ID: 000</span>
+                    <h3 id="modal-product-title">Título do Produto</h3>
+                    
+                    <div class="price-box">
+                        <span id="modal-product-old-price" class="old-price">R$ 0,00</span>
+                        <span id="modal-product-price" class="new-price">R$ 0,00</span>
+                    </div>
+
+                    <div class="description-box">
+                        <h4>📝 Sobre este item:</h4>
+                        <p id="modal-product-desc">Descrição do produto...</p>
+                    </div>
+
+                    <a id="modal-buy-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-buy-now">
+                        🛍️ Ir para a Shopee
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-container">
+            <p>&copy; 2026 Achadinhos Shopee. Todos os direitos reservados.</p>
+            <p class="footer-notice">Ao comprar através dos nossos links, recebemos uma pequena comissão da plataforma Shopee Afiliados.</p>
+        </div>
+    </footer>
+
+    <!-- Script de lógica dinâmica -->
+    <script src="app.js"></script>
+</body>
+</html>
