@@ -94,8 +94,22 @@ async def test_pipeline():
             local_image_name = f"{item_id}{ext}"
             shutil.copy2(main_img_path, os.path.join(images_dir, local_image_name))
             
+        json_path = os.path.join(storefront_dir, "products.json")
+        products_list = []
+        if os.path.exists(json_path):
+            with open(json_path, "r", encoding="utf-8") as f:
+                products_list = json.load(f)
+                
+        offer_code = f"#{len(products_list) + 1:02d}"
+        for idx, p in enumerate(products_list):
+            if p.get("itemId") == (int(item_id) if str(item_id).isdigit() else item_id):
+                offer_code = p.get("code", offer_code)
+                break
+                
         product_entry = {
             "itemId": int(item_id) if str(item_id).isdigit() else item_id,
+            "code": offer_code,
+            "category": "Tecnologia",
             "productName": product_offer.get("productName", "Produto"),
             "productLink": product_offer.get("productLink", ""),
             "offerLink": product_offer.get("offerLink", ""),
@@ -105,12 +119,6 @@ async def test_pipeline():
             "localImageName": local_image_name,
             "description": "Produto de teste da vitrine."
         }
-        
-        json_path = os.path.join(storefront_dir, "products.json")
-        products_list = []
-        if os.path.exists(json_path):
-            with open(json_path, "r", encoding="utf-8") as f:
-                products_list = json.load(f)
                 
         exists = False
         for idx, p in enumerate(products_list):

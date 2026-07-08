@@ -79,17 +79,44 @@ class ShopeeApp(ctk.CTk):
         )
         self.url_entry.pack(fill="x", padx=15, pady=5)
 
+        # Categoria do Produto
+        self.category_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.category_frame.pack(fill="x", padx=15, pady=(5, 2))
+
+        self.category_label = ctk.CTkLabel(
+            self.category_frame, 
+            text="Categoria da vitrine:",
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        self.category_label.pack(side="left", padx=(0, 10))
+
+        self.category_combo = ctk.CTkComboBox(
+            self.category_frame, 
+            values=["Casa & Cozinha", "Tecnologia", "Utilidades", "Moda", "Beleza & Saúde", "Outros"],
+            width=200
+        )
+        self.category_combo.pack(side="left")
+        self.category_combo.set("Casa & Cozinha")
+
         # Opções extras
         self.options_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.options_frame.pack(fill="x", padx=15, pady=5)
 
         self.clipboard_checkbox = ctk.CTkCheckBox(
             self.options_frame, 
-            text="Ativar Monitor de Área de Transferência (Auto Ctrl+C)",
+            text="Monitorar Área de Transferência (Auto Ctrl+C)",
             command=self.toggle_clipboard_monitor,
             font=ctk.CTkFont(size=12)
         )
         self.clipboard_checkbox.pack(side="left", pady=5)
+
+        self.autopush_checkbox = ctk.CTkCheckBox(
+            self.options_frame, 
+            text="Publicar Auto no GitHub",
+            font=ctk.CTkFont(size=12)
+        )
+        self.autopush_checkbox.pack(side="right", pady=5)
+        self.autopush_checkbox.select()
 
         # Botões de Ação
         self.buttons_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
@@ -347,6 +374,11 @@ class ShopeeApp(ctk.CTk):
             self.log_message("Salvando produto na vitrine web local...")
             self.save_to_web_storefront(product_offer, download_results, raw_data)
             
+            # 8. Auto-Publicação no GitHub Pages se ativado
+            if self.autopush_checkbox.get() == 1:
+                self.log_message("Auto-publicação ativada. Sincronizando com o GitHub Pages...")
+                self.publish_to_github()
+
             # Conclusão
             self.progress_bar.set(1.0)
             self.progress_label.configure(text="Concluído!")
@@ -414,7 +446,7 @@ class ShopeeApp(ctk.CTk):
             time.sleep(1.5)
 
     def save_to_web_storefront(self, product_offer: dict, download_results: dict, raw_data: Optional[dict]):
-        """Salva a imagem do produto e atualiza o products.json na pasta storefront."""
+        """Salva a imagem do produto e atualiza o products.json na pasta storefront com categorias e códigos sequenciais."""
         import shutil
         import json
         try:
@@ -433,6 +465,33 @@ class ShopeeApp(ctk.CTk):
                 dest_img_path = os.path.join(images_dir, local_image_name)
                 shutil.copy2(main_img_path, dest_img_path)
                 self.log_message(f"Imagem do site copiada: {local_image_name}")
+
+            # Lê o arquivo JSON existente
+            json_path = os.path.join(storefront_dir, "products.json")
+            products_list = []
+            if os.path.exists(json_path):
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        products_list = json.load(f)
+                except Exception:
+                    products_list = []
+
+            # Verifica se já existe para obter o índice
+            exists_idx = -1
+            clean_item_id = int(item_id) if str(item_id).isdigit() else item_id
+            for idx, p in enumerate(products_list):
+                if p.get("itemId") == clean_item_id:
+                    exists_idx = idx
+                    break
+
+            # Determina o código da oferta (preserva o antigo ou gera novo)
+            if exists_idx >= 0:
+                offer_code = products_list[exists_idx].get("code", f"#{len(products_list):02d}")
+            else:
+                offer_code = f"#{len(products_list) + 1:02d}"
+
+            # Categoria da interface GUI
+            category = self.category_combo.get()
 
             # Carrega descrição real se houver nos dados brutos
             description = ""
@@ -457,7 +516,9 @@ class ShopeeApp(ctk.CTk):
 
             # Prepara a entrada do produto
             product_entry = {
-                "itemId": int(item_id) if str(item_id).isdigit() else item_id,
+                "itemId": clean_item_id,
+                "code": offer_code,
+                "category": category,
                 "productName": product_offer.get("productName", "Produto"),
                 "productLink": product_offer.get("productLink", ""),
                 "offerLink": product_offer.get("offerLink", ""),
@@ -468,29 +529,12 @@ class ShopeeApp(ctk.CTk):
                 "description": description
             }
 
-            # Lê o arquivo JSON existente
-            json_path = os.path.join(storefront_dir, "products.json")
-            products_list = []
-            if os.path.exists(json_path):
-                try:
-                    with open(json_path, "r", encoding="utf-8") as f:
-                        products_list = json.load(f)
-                except Exception:
-                    products_list = []
-
-            # Verifica se já existe para atualizar, ou adiciona novo
-            exists_idx = -1
-            for idx, p in enumerate(products_list):
-                if p.get("itemId") == product_entry["itemId"]:
-                    exists_idx = idx
-                    break
-
             if exists_idx >= 0:
                 products_list[exists_idx] = product_entry
-                self.log_message(f"Produto ID {item_id} já existia na vitrine e foi atualizado.")
+                self.log_message(f"Produto {offer_code} (ID {item_id}) já existia na vitrine e foi atualizado.")
             else:
                 products_list.append(product_entry)
-                self.log_message(f"Novo produto ID {item_id} adicionado à vitrine web.")
+                self.log_message(f"Novo produto {offer_code} (ID {item_id}) adicionado à vitrine web na categoria '{category}'.")
 
             # Grava de volta
             with open(json_path, "w", encoding="utf-8") as f:

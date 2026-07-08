@@ -1,15 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
     let products = [];
+    let activeCategory = 'Todos';
+    
     const productsGrid = document.getElementById('products-grid');
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
     const productCount = document.getElementById('product-count');
+    const categoryTabsContainer = document.getElementById('category-tabs');
+    const currentCategoryTitle = document.getElementById('current-category-title');
     
     // Elementos do Modal
     const modal = document.getElementById('product-modal');
     const closeModalBtn = document.getElementById('close-modal-btn');
     const modalImg = document.getElementById('modal-product-img');
-    const modalId = document.getElementById('modal-product-id');
+    const modalCode = document.getElementById('modal-product-code');
+    const modalCategory = document.getElementById('modal-product-category');
     const modalTitle = document.getElementById('modal-product-title');
     const modalOldPrice = document.getElementById('modal-product-old-price');
     const modalPrice = document.getElementById('modal-product-price');
@@ -26,7 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Inverte a ordem para mostrar os mais novos primeiro
             products.reverse();
             
-            renderProducts(products);
+            // Renderiza abas de categorias e produtos
+            renderCategoryTabs();
+            filterAndRender();
         } catch (error) {
             console.error(error);
             productsGrid.innerHTML = `
@@ -37,7 +44,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Renderiza a lista de produtos na vitrine
+    // Renderiza botões de categoria dinamicamente
+    function renderCategoryTabs() {
+        categoryTabsContainer.innerHTML = '';
+        
+        // Coleta todas as categorias únicas presentes nos produtos
+        const uniqueCategories = ['Todos'];
+        products.forEach(p => {
+            if (p.category && !uniqueCategories.includes(p.category)) {
+                uniqueCategories.push(p.category);
+            }
+        });
+
+        uniqueCategories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = `category-tab ${activeCategory === cat ? 'active' : ''}`;
+            btn.textContent = cat;
+            btn.addEventListener('click', () => {
+                activeCategory = cat;
+                
+                // Atualiza classe ativa dos botões
+                document.querySelectorAll('.category-tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                filterAndRender();
+            });
+            categoryTabsContainer.appendChild(btn);
+        });
+    }
+
+    // Lógica Combinada de Filtro & Busca
+    function filterAndRender() {
+        const query = searchInput.value.toLowerCase().trim();
+        
+        // Filtra por Categoria e por Busca (Nome ou Código da Oferta)
+        const filtered = products.filter(product => {
+            const matchesCategory = activeCategory === 'Todos' || product.category === activeCategory;
+            
+            const productName = product.productName ? product.productName.toLowerCase() : '';
+            const productCode = product.code ? product.code.toLowerCase() : '';
+            // Também permite buscar apenas pelo número digitado (ex: "03" encontra "#03")
+            const numberQuery = query.startsWith('#') ? query : '#' + query;
+
+            const matchesSearch = query === '' || 
+                                  productName.includes(query) || 
+                                  productCode.includes(query) ||
+                                  productCode.includes(numberQuery);
+                                  
+            return matchesCategory && matchesSearch;
+        });
+
+        // Atualiza título da seção
+        currentCategoryTitle.textContent = activeCategory === 'Todos' ? '🔥 Todas as Ofertas' : `Nicho: ${activeCategory}`;
+        renderProducts(filtered);
+    }
+
+    // Renderiza a lista de produtos filtrados
     function renderProducts(items) {
         productsGrid.innerHTML = '';
         productCount.textContent = `${items.length} produto${items.length !== 1 ? 's' : ''}`;
@@ -57,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Tratamento de preços para exibição
             const price = parseFloat(product.priceMin || product.price || 0);
-            const oldPrice = parseFloat(product.priceOriginal || (price * 1.35)); // Estima 35% a mais se não houver original
+            const oldPrice = parseFloat(product.priceOriginal || (price * 1.35));
             
             const formattedPrice = price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             const formattedOldPrice = oldPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -68,12 +130,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 imgSrc = 'images/' + product.localImageName;
             }
 
+            const code = product.code || '#--';
+            const category = product.category || 'Outros';
+
             card.innerHTML = `
                 <div class="card-img-wrapper">
                     <img src="${imgSrc}" alt="${product.productName}" loading="lazy">
                 </div>
                 <div class="card-body">
-                    <span class="product-id-badge">COD: ${product.itemId}</span>
+                    <div class="card-tags">
+                        <span class="product-code-badge">${code}</span>
+                        <span class="product-category-badge">${category}</span>
+                    </div>
                     <h3 class="product-title">${product.productName}</h3>
                     <div class="card-footer">
                         <div class="price-container">
@@ -102,7 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         modalImg.src = imgSrc;
-        modalId.textContent = `PRODUTO ID: ${product.itemId}`;
+        modalCode.textContent = product.code || '#--';
+        modalCategory.textContent = product.category || 'Outros';
         modalTitle.textContent = product.productName;
         
         modalOldPrice.textContent = oldPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -124,18 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === modal) closeModal();
     });
 
-    // Busca e Filtros
-    function filterProducts() {
-        const query = searchInput.value.toLowerCase().strip ? searchInput.value.toLowerCase().strip() : searchInput.value.toLowerCase().trim();
-        const filtered = products.filter(p => 
-            p.productName.toLowerCase().includes(query) || 
-            p.itemId.toString().includes(query)
-        );
-        renderProducts(filtered);
-    }
-
-    searchInput.addEventListener('input', filterProducts);
-    searchBtn.addEventListener('click', filterProducts);
+    searchInput.addEventListener('input', filterAndRender);
+    searchBtn.addEventListener('click', filterAndRender);
 
     // Inicializa
     loadProducts();
