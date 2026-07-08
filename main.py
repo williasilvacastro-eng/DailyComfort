@@ -7,6 +7,7 @@ import asyncio
 import customtkinter as ctk
 from tkinter import messagebox
 from dotenv import load_dotenv
+from typing import Optional
 
 # Importa os módulos criados
 from api_shopee import ShopeeAffiliateAPI
