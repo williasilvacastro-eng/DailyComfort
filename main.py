@@ -59,11 +59,40 @@ class ShopeeApp(ctk.CTk):
             text="Shopee Extractor & Organizer", 
             font=ctk.CTkFont(family="Inter", size=24, weight="bold")
         )
-        self.title_label.pack(pady=15)
+        self.title_label.pack(pady=(15, 5))
 
-        # Container Principal
-        self.main_frame = ctk.CTkFrame(self)
-        self.main_frame.pack(fill="both", expand=True, padx=20, pady=5)
+        # Tabview para separar extração e gerenciamento
+        self.tabview = ctk.CTkTabview(self, command=self.tab_changed)
+        self.tabview.pack(fill="both", expand=True, padx=15, pady=10)
+        
+        self.tab_extract = self.tabview.add("Extrair e Publicar")
+        self.tab_manage = self.tabview.add("Gerenciar Vitrine")
+
+        # Configura a aba 1 (Extrair e Publicar)
+        self.main_frame = self.tab_extract
+
+        # Configura a aba 2 (Gerenciar Vitrine)
+        self.manage_top_frame = ctk.CTkFrame(self.tab_manage, fg_color="transparent")
+        self.manage_top_frame.pack(fill="x", padx=10, pady=10)
+
+        self.total_products_label = ctk.CTkLabel(
+            self.manage_top_frame, 
+            text="Total: 0 produtos",
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        self.total_products_label.pack(side="left", padx=5)
+
+        self.refresh_btn = ctk.CTkButton(
+            self.manage_top_frame, 
+            text="🔄 Atualizar Lista", 
+            command=self.load_manage_products,
+            width=120,
+            height=30
+        )
+        self.refresh_btn.pack(side="right", padx=5)
+
+        self.scroll_frame = ctk.CTkScrollableFrame(self.tab_manage)
+        self.scroll_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         # Input URL
         self.url_label = ctk.CTkLabel(
@@ -648,6 +677,261 @@ class ShopeeApp(ctk.CTk):
             hover_color="#D13F21"
         )
         btn_save.pack(pady=15)
+
+    def tab_changed(self):
+        """Disparado quando a aba do painel é alterada."""
+        if self.tabview.get() == "Gerenciar Vitrine":
+            self.load_manage_products()
+
+    def load_manage_products(self):
+        """Carrega e renderiza a lista de produtos cadastrados na aba de gerenciamento."""
+        import json
+        
+        # Limpa o frame de rolagem de produtos anteriores
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+
+        storefront_dir = os.path.abspath(os.path.join(os.getcwd(), "storefront"))
+        json_path = os.path.join(storefront_dir, "products.json")
+        
+        products_list = []
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    products_list = json.load(f)
+            except Exception as e:
+                self.log_message(f"Erro ao ler products.json no gerenciador: {e}", "error")
+
+        # Mostra o total de produtos
+        self.total_products_label.configure(text=f"Total: {len(products_list)} produtos")
+
+        # Inverte para que os mais novos apareçam no topo
+        products_to_show = list(reversed(products_list))
+
+        if not products_to_show:
+            empty_lbl = ctk.CTkLabel(
+                self.scroll_frame, 
+                text="Nenhum produto cadastrado na vitrine.", 
+                font=ctk.CTkFont(size=12, slant="italic")
+            )
+            empty_lbl.pack(pady=40)
+            return
+
+        for product in products_to_show:
+            row = ctk.CTkFrame(self.scroll_frame)
+            row.pack(fill="x", padx=5, pady=4)
+
+            # Extrai campos
+            code = product.get("code", "#--")
+            name = product.get("productName", "Sem Nome")
+            category = product.get("category", "Outros")
+            price = product.get("priceMin", 0.0)
+            
+            # Limita tamanho do título na listagem
+            display_name = name[:40] + "..." if len(name) > 40 else name
+            
+            info_text = f"{code} [{category}] {display_name} - R$ {price:.2f}".replace(".", ",")
+            info_lbl = ctk.CTkLabel(row, text=info_text, font=ctk.CTkFont(size=12, weight="semibold"))
+            info_lbl.pack(side="left", padx=10, pady=5)
+
+            # Botões de Ação
+            btn_delete = ctk.CTkButton(
+                row, 
+                text="Excluir", 
+                width=65, 
+                height=25,
+                fg_color="#D9534F",
+                hover_color="#C9302C",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                command=lambda p=product: self.delete_product_confirm(p)
+            )
+            btn_delete.pack(side="right", padx=(5, 10), pady=5)
+
+            btn_edit = ctk.CTkButton(
+                row, 
+                text="Editar", 
+                width=65, 
+                height=25,
+                fg_color="#F0AD4E",
+                hover_color="#EC971F",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                command=lambda p=product: self.open_edit_dialog(p)
+            )
+            btn_edit.pack(side="right", padx=5, pady=5)
+
+    def delete_product_confirm(self, product):
+        """Solicita confirmação antes de apagar um produto."""
+        item_id = product.get("itemId")
+        code = product.get("code", "#--")
+        name = product.get("productName", "")
+        
+        if messagebox.askyesno("Confirmar Exclusão", f"Deseja realmente excluir a oferta {code}?\n\nProduto: {name[:40]}..."):
+            self.delete_product_from_db(item_id)
+
+    def delete_product_from_db(self, item_id):
+        """Apaga o produto do JSON, remove a imagem local e opcionalmente dá push no Git."""
+        import json
+        try:
+            storefront_dir = os.path.abspath(os.path.join(os.getcwd(), "storefront"))
+            json_path = os.path.join(storefront_dir, "products.json")
+            
+            if not os.path.exists(json_path):
+                return
+                
+            with open(json_path, "r", encoding="utf-8") as f:
+                products_list = json.load(f)
+                
+            # Filtra fora
+            new_list = [p for p in products_list if p.get("itemId") != item_id]
+            
+            # Encontra e apaga a imagem local correspondente
+            product_to_delete = next((p for p in products_list if p.get("itemId") == item_id), None)
+            if product_to_delete and product_to_delete.get("localImageName"):
+                img_path = os.path.join(storefront_dir, "images", product_to_delete.get("localImageName"))
+                if os.path.exists(img_path):
+                    try:
+                        os.remove(img_path)
+                        self.log_message(f"Imagem do produto excluída: {product_to_delete.get('localImageName')}")
+                    except Exception:
+                        pass
+
+            # Grava de volta
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(new_list, f, indent=4, ensure_ascii=False)
+                
+            self.log_message(f"✅ Produto ID {item_id} excluído com sucesso da vitrine.")
+            
+            # Recarrega a aba de gerenciamento
+            self.load_manage_products()
+            
+            # Publicação automática se habilitada
+            if self.autopush_checkbox.get() == 1:
+                self.log_message("Auto-publicação ativada. Atualizando remoção no GitHub Pages...")
+                self.publish_to_github()
+                
+        except Exception as e:
+            self.log_message(f"Erro ao excluir produto da vitrine: {e}", "error")
+            messagebox.showerror("Erro ao Excluir", f"Ocorreu um erro ao excluir o produto:\n{e}", parent=self)
+
+    def open_edit_dialog(self, product):
+        """Abre uma janela modal estilizada para editar as informações do produto."""
+        import json
+        
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(f"Editar Oferta {product.get('code', '')}")
+        dialog.geometry("540x560")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Título
+        lbl_title = ctk.CTkLabel(dialog, text="Título do Produto:", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_title.pack(anchor="w", padx=20, pady=(15, 2))
+        entry_title = ctk.CTkEntry(dialog, width=500)
+        entry_title.pack(padx=20, pady=5)
+        entry_title.insert(0, product.get("productName", ""))
+
+        # Categoria
+        lbl_cat = ctk.CTkLabel(dialog, text="Categoria do Produto:", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_cat.pack(anchor="w", padx=20, pady=(10, 2))
+        combo_cat = ctk.CTkComboBox(
+            dialog, 
+            values=["Casa & Cozinha", "Tecnologia", "Utilidades", "Moda", "Beleza & Saúde", "Outros"], 
+            width=220
+        )
+        combo_cat.pack(anchor="w", padx=20, pady=5)
+        combo_cat.set(product.get("category", "Casa & Cozinha"))
+
+        # Frame de preços (2 colunas)
+        price_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        price_frame.pack(fill="x", padx=20, pady=10)
+
+        lbl_price = ctk.CTkLabel(price_frame, text="Preço com Desconto (R$):", font=ctk.CTkFont(size=11, weight="bold"))
+        lbl_price.grid(row=0, column=0, sticky="w", pady=(0, 2))
+        entry_price = ctk.CTkEntry(price_frame, width=235)
+        entry_price.grid(row=1, column=0, padx=(0, 15), pady=5)
+        entry_price.insert(0, f"{product.get('priceMin', 0.0):.2f}")
+
+        lbl_orig = ctk.CTkLabel(price_frame, text="Preço Original (R$):", font=ctk.CTkFont(size=11, weight="bold"))
+        lbl_orig.grid(row=0, column=1, sticky="w", pady=(0, 2))
+        entry_orig = ctk.CTkEntry(price_frame, width=235)
+        entry_orig.grid(row=1, column=1, pady=5)
+        entry_orig.insert(0, f"{product.get('priceOriginal', 0.0):.2f}")
+
+        # Link de Afiliado
+        lbl_link = ctk.CTkLabel(dialog, text="Link de Afiliado (URL):", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_link.pack(anchor="w", padx=20, pady=(10, 2))
+        entry_link = ctk.CTkEntry(dialog, width=500)
+        entry_link.pack(padx=20, pady=5)
+        entry_link.insert(0, product.get("offerLink", ""))
+
+        # Descrição
+        lbl_desc = ctk.CTkLabel(dialog, text="Descrição Resumida (Detalhes):", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_desc.pack(anchor="w", padx=20, pady=(10, 2))
+        text_desc = ctk.CTkTextbox(dialog, height=110, width=500)
+        text_desc.pack(padx=20, pady=5)
+        text_desc.insert("1.0", product.get("description", ""))
+
+        def save():
+            try:
+                new_title = entry_title.get().strip()
+                new_cat = combo_cat.get()
+                new_price = float(entry_price.get().replace(",", "."))
+                new_orig = float(entry_orig.get().replace(",", "."))
+                new_link = entry_link.get().strip()
+                new_desc = text_desc.get("1.0", "end").strip()
+
+                if not new_title or not new_link:
+                    messagebox.showerror("Erro", "Título e Link de Afiliado são obrigatórios.", parent=dialog)
+                    return
+
+                # Atualiza o banco de dados local
+                storefront_dir = os.path.abspath(os.path.join(os.getcwd(), "storefront"))
+                json_path = os.path.join(storefront_dir, "products.json")
+                
+                with open(json_path, "r", encoding="utf-8") as f:
+                    products_list = json.load(f)
+
+                item_id = product.get("itemId")
+                for p in products_list:
+                    if p.get("itemId") == item_id:
+                        p["productName"] = new_title
+                        p["category"] = new_cat
+                        p["priceMin"] = new_price
+                        p["priceOriginal"] = new_orig
+                        p["offerLink"] = new_link
+                        p["description"] = new_desc
+                        break
+
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(products_list, f, indent=4, ensure_ascii=False)
+
+                self.log_message(f"✅ Produto {product.get('code')} (ID {item_id}) editado com sucesso.")
+                
+                # Recarrega a listagem
+                self.load_manage_products()
+                
+                # Sincroniza se o auto push estiver ativo
+                if self.autopush_checkbox.get() == 1:
+                    self.log_message("Auto-publicação ativada. Atualizando edições no GitHub Pages...")
+                    self.publish_to_github()
+
+                dialog.destroy()
+                messagebox.showinfo("Sucesso", "Produto editado com sucesso!", parent=self)
+                
+            except ValueError:
+                messagebox.showerror("Erro de Formato", "Por favor, insira valores numéricos válidos nos campos de preço.", parent=dialog)
+            except Exception as ex:
+                messagebox.showerror("Erro", f"Erro inesperado ao salvar alterações:\n{ex}", parent=dialog)
+
+        btn_save = ctk.CTkButton(
+            dialog, 
+            text="Salvar Alterações", 
+            command=save,
+            fg_color="#EE4D2D",
+            hover_color="#D13F21",
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        btn_save.pack(pady=18)
 
 if __name__ == "__main__":
     app = ShopeeApp()
